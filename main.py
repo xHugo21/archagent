@@ -1,4 +1,5 @@
 def main():
+    from sys import argv
     import os
     from dotenv import load_dotenv
     from typing import cast
@@ -14,7 +15,11 @@ def main():
     with open("prompts/master.txt", "r") as f:
         system_prompt = f.read()
 
-    user_prompt = "Who are you"
+    if len(argv) < 2:
+        print("Please enter a prompt")
+        return -1
+    else:
+        user_prompt = argv[1]
 
     response = litellm.completion(
         model=model,
