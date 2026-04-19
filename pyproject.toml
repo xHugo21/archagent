@@ -1,7 +1,7 @@
 [project]
-name = "simple-agent"
+name = "archagent"
 version = "0.1.0"
-description = "Add your description here"
+description = "Basic AI Agent"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
