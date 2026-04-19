@@ -11,12 +11,18 @@ def main():
 
     litellm.suppress_debug_info = True
 
-    user_prompt = "What model are you"
+    with open("prompts/master.txt", "r") as f:
+        system_prompt = f.read()
+
+    user_prompt = "Who are you"
 
     response = litellm.completion(
         model=model,
         api_key=api_key,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
         stream=False,
     )
 
