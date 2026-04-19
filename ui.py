@@ -7,6 +7,7 @@ from rich.text import Text
 from rich.console import Console, RenderableType
 from rich.panel import Panel
 from rich.align import Align
+from rich.status import Status
 import json
 
 
@@ -77,6 +78,9 @@ class ChatApp:
         self.console = Console()
         self.messages: list[Message] = []
         self.running = True
+        self.loading = Status(
+            "[cyan] Processing...", console=self.console, spinner="dots"
+        )
 
     def display_welcome(self) -> None:
         welcome = Panel(
@@ -117,7 +121,11 @@ class ChatApp:
         return self.console.input(Text(prompt, style="bold cyan"))
 
     def display_processing(self) -> None:
-        self.console.print(Text("⏳ Processing your request...", style="dim yellow"))
+        self.loading.start()
+
+    def stop_processing(self) -> None:
+        if self.loading:
+            self.loading.stop()
 
     def clear_screen(self) -> None:
         self.console.clear()
@@ -162,6 +170,7 @@ class InteractiveSession:
 
                 self.app.display_processing()
                 response, self.messages = self.agent_callback(user_input, self.messages)
+                self.app.stop_processing()
 
                 agent_msg = Message(role="assistant", content=response)
                 self.app.display_message(agent_msg)
