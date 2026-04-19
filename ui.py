@@ -124,10 +124,10 @@ class ChatApp:
 
     def display_help(self) -> None:
         help_text = """
-[yellow]Commands:[/yellow]
-  exit     - Exit the application
-  clear    - Clear the screen
-  help     - Show this help message
+[yellow]Slash Commands:[/yellow]
+  /exit     - Exit the application
+  /clear    - Clear the screen
+  /help     - Show this help message
 
 [yellow]Usage:[/yellow]
   Just type your question or command and press Enter.
@@ -153,7 +153,7 @@ class InteractiveSession:
             try:
                 user_input = self.app.get_user_input()
 
-                if self._handle_command(user_input):
+                if self._handle_slash_command(user_input):
                     continue
 
                 user_msg = Message(role="user", content=user_input)
@@ -172,19 +172,18 @@ class InteractiveSession:
             except Exception as e:
                 self.app.display_error(str(e))
 
-    def _handle_command(self, user_input: str) -> bool:
+    def _handle_slash_command(self, user_input: str) -> bool:
         cmd = user_input.strip().lower()
 
-        if cmd in ("exit", "quit", "q"):
-            self.app.console.print(Text("Goodbye!", style="bold yellow"))
+        if cmd == "/exit":
             self.app.running = False
             return True
 
-        if cmd in ("clear", "cls"):
+        if cmd == "/clear":
             self.app.clear_screen()
             return True
 
-        if cmd == "help":
+        if cmd == "/help":
             self.app.display_help()
             return True
 
