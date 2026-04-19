@@ -80,13 +80,10 @@ class ChatApp:
 
     def display_welcome(self) -> None:
         welcome = Panel(
-            Text.assemble(
-                "Welcome to ",
-                Text("ArchAgent", style="bold cyan"),
-                "\n\nYour AI terminal assistant",
-            ),
+            Text.assemble("Welcome to ArchAgent", justify="center"),
             border_style="cyan",
-            padding=(1, 2),
+            padding=(2, 2),
+            title_align="center",
         )
         self.console.print(welcome)
 
@@ -127,12 +124,10 @@ class ChatApp:
 
     def display_help(self) -> None:
         help_text = """
-[bold cyan]ArchAgent Help[/bold cyan]
-
 [yellow]Commands:[/yellow]
-  exit, quit, q     - Exit the application
-  clear, cls        - Clear the screen
-  help              - Show this help message
+  exit     - Exit the application
+  clear    - Clear the screen
+  help     - Show this help message
 
 [yellow]Usage:[/yellow]
   Just type your question or command and press Enter.
@@ -147,7 +142,9 @@ class InteractiveSession:
         self.agent_callback = None
         self.messages: list[dict] = messages
 
-    def run(self, agent_callback: Callable[[str, list[dict]], tuple[str, list[dict]]]) -> None:
+    def run(
+        self, agent_callback: Callable[[str, list[dict]], tuple[str, list[dict]]]
+    ) -> None:
         self.agent_callback = agent_callback
         self.app.display_welcome()
         self.app.display_help()
