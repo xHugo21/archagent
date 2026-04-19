@@ -142,16 +142,13 @@ class ChatApp:
 
 
 class InteractiveSession:
-    def __init__(
-        self,
-        agent_loop_callback: Callable[[str, list[dict]], tuple[str, list[dict]]],
-        messages: list[dict],
-    ):
+    def __init__(self, messages: list[dict]):
         self.app = ChatApp()
-        self.agent_callback = agent_loop_callback
+        self.agent_callback = None
         self.messages: list[dict] = messages
 
-    def run(self) -> None:
+    def run(self, agent_callback: Callable[[str, list[dict]], tuple[str, list[dict]]]) -> None:
+        self.agent_callback = agent_callback
         self.app.display_welcome()
         self.app.display_help()
 
