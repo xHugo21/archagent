@@ -1,12 +1,8 @@
 from typing import Callable
 from dataclasses import dataclass
-from textual.app import ComposeResult
-from textual.containers import Container
-from textual.widgets import Input, Static, RichLog, Button
 from rich.text import Text
-from rich.console import Console, RenderableType
+from rich.console import Console
 from rich.panel import Panel
-from rich.align import Align
 from rich.status import Status
 import json
 
@@ -17,60 +13,6 @@ class Message:
     content: str
     tool_call_id: str | None = None
     function_name: str | None = None
-
-
-class ChatDisplay(RichLog):
-    def add_message(self, message: Message) -> None:
-        if message.role == "user":
-            self.write(Text("You: ", style="bold cyan"))
-            self.write(Text(message.content, style="cyan"))
-        elif message.role == "assistant":
-            self.write(Text("Agent: ", style="bold green"))
-            self.write(Text(message.content, style="green"))
-        elif message.role == "tool":
-            self.write(
-                Text(f"🔧 Tool [{message.function_name}]: ", style="bold yellow"),
-            )
-            self.write(Text(message.content, style="yellow"))
-
-
-class ChatInput(Container):
-    DEFAULT_CSS = """
-    ChatInput {
-        height: 3;
-        layout: horizontal;
-    }
-
-    ChatInput Input {
-        width: 1fr;
-    }
-
-    ChatInput Button {
-        width: 10;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        yield Input(placeholder="Type your message...", id="message_input")
-        yield Button("Send", id="send_btn", variant="primary")
-
-    def get_input_text(self) -> str:
-        input_widget = self.query_one("#message_input", Input)
-        return input_widget.value
-
-    def clear_input(self) -> None:
-        input_widget = self.query_one("#message_input", Input)
-        input_widget.value = ""
-
-
-class StatusBar(Static):
-    def render(self) -> RenderableType:
-        status_text = getattr(self, "status_text", "Ready")
-        return Align.left(Text(status_text, style="bold white on blue"))
-
-    def set_status(self, text: str) -> None:
-        self.status_text = text
-        self.refresh()
 
 
 class ChatApp:
