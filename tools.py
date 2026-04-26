@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import inspect
+import json
 import shutil
 import subprocess
+import types
 from pathlib import Path
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 WORKSPACE_ROOT = Path.cwd().resolve()
+_TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 
 
 def _resolve_path(path: str) -> Path:
@@ -14,6 +19,85 @@ def _resolve_path(path: str) -> Path:
     return candidate
 
 
+def _python_type_to_schema(annotation: Any) -> dict[str, Any]:
+    origin = get_origin(annotation)
+
+    if origin in (Union, types.UnionType):
+        args = get_args(annotation)
+        non_none_args = [arg for arg in args if arg is not type(None)]
+
+        if len(non_none_args) == 1 and len(non_none_args) != len(args):
+            schema = _python_type_to_schema(non_none_args[0])
+            schema["nullable"] = True
+            return schema
+
+        return {"anyOf": [_python_type_to_schema(arg) for arg in args]}
+
+    if origin in (list, tuple, set):
+        return {"type": "array"}
+    if origin is dict:
+        return {"type": "object"}
+
+    if annotation is str:
+        return {"type": "string"}
+    if annotation is int:
+        return {"type": "integer"}
+    if annotation is float:
+        return {"type": "number"}
+    if annotation is bool:
+        return {"type": "boolean"}
+
+    return {"type": "string"}
+
+
+def tool(description: str):
+    def decorator(func):
+        signature = inspect.signature(func)
+        type_hints = get_type_hints(func)
+
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+
+        for name, param in signature.parameters.items():
+            annotation = type_hints.get(name, str)
+            prop_schema = _python_type_to_schema(annotation)
+
+            if param.default is not inspect._empty:
+                default_value = param.default
+                # Keep defaults JSON-safe where possible.
+                try:
+                    json.dumps(default_value)
+                    prop_schema["default"] = default_value
+                except TypeError:
+                    pass
+            else:
+                required.append(name)
+
+            properties[name] = prop_schema
+
+        function_schema: dict[str, Any] = {
+            "name": func.__name__,
+            "description": description,
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+            },
+        }
+
+        if required:
+            function_schema["parameters"]["required"] = required
+
+        _TOOL_REGISTRY[func.__name__] = {
+            "type": "function",
+            "function": function_schema,
+        }
+
+        return func
+
+    return decorator
+
+
+@tool("Read a UTF-8 text file. Optionally limit by start and end line numbers.")
 def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> str:
     try:
         file_path = _resolve_path(path)
@@ -37,6 +121,7 @@ def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> st
         return f"Execution Error: {str(e)}"
 
 
+@tool("Edit a file by replacing one unique exact text block with new text.")
 def edit_file(path: str, old_text: str, new_text: str) -> str:
     try:
         file_path = _resolve_path(path)
@@ -58,6 +143,7 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Create or overwrite a UTF-8 text file.")
 def write_file(path: str, content: str) -> str:
     try:
         file_path = _resolve_path(path)
@@ -68,6 +154,7 @@ def write_file(path: str, content: str) -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("List files and directories under a path.")
 def list_files(path: str = ".", recursive: bool = False) -> str:
     try:
         base = _resolve_path(path)
@@ -82,6 +169,7 @@ def list_files(path: str = ".", recursive: bool = False) -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Search for text in files under a path and return matching lines.")
 def search_text(query: str, path: str = ".") -> str:
     try:
         base = _resolve_path(path)
@@ -118,6 +206,7 @@ def search_text(query: str, path: str = ".") -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Find files matching a glob pattern under a path.")
 def find_files(pattern: str, path: str = ".") -> str:
     try:
         base = _resolve_path(path)
@@ -135,6 +224,7 @@ def find_files(pattern: str, path: str = ".") -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Move or rename a file or directory.")
 def move_file(source_path: str, destination_path: str) -> str:
     try:
         source = _resolve_path(source_path)
@@ -149,6 +239,7 @@ def move_file(source_path: str, destination_path: str) -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Delete a file. Can also delete a directory if recursive=true.")
 def delete_file(path: str, recursive: bool = False) -> str:
     try:
         target = _resolve_path(path)
@@ -167,154 +258,10 @@ def delete_file(path: str, recursive: bool = False) -> str:
         return f"Execution Error: {str(e)}"
 
 
+@tool("Patch helper: applies one exact text replacement in a file.")
 def apply_patch(path: str, old_text: str, new_text: str) -> str:
     """Apply a patch-like replacement to a file via exact-match replacement."""
     return edit_file(path=path, old_text=old_text, new_text=new_text)
 
 
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read a UTF-8 text file. Optionally limit by start and end line numbers.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Path to the file."},
-                    "start_line": {
-                        "type": "integer",
-                        "description": "1-based start line number.",
-                        "default": 1,
-                    },
-                    "end_line": {
-                        "type": "integer",
-                        "description": "1-based end line number (exclusive).",
-                    },
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_file",
-            "description": "Edit a file by replacing one unique exact text block with new text.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "old_text": {"type": "string"},
-                    "new_text": {"type": "string"},
-                },
-                "required": ["path", "old_text", "new_text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Create or overwrite a UTF-8 text file.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["path", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_files",
-            "description": "List files and directories under a path.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "default": "."},
-                    "recursive": {"type": "boolean", "default": False},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_text",
-            "description": "Search for text in files under a path and return matching lines.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string"},
-                    "path": {"type": "string", "default": "."},
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_files",
-            "description": "Find files matching a glob pattern under a path.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pattern": {"type": "string"},
-                    "path": {"type": "string", "default": "."},
-                },
-                "required": ["pattern"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "move_file",
-            "description": "Move or rename a file or directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "source_path": {"type": "string"},
-                    "destination_path": {"type": "string"},
-                },
-                "required": ["source_path", "destination_path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_file",
-            "description": "Delete a file. Can also delete a directory if recursive=true.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "recursive": {"type": "boolean", "default": False},
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "apply_patch",
-            "description": "Patch helper: applies one exact text replacement in a file.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "old_text": {"type": "string"},
-                    "new_text": {"type": "string"},
-                },
-                "required": ["path", "old_text", "new_text"],
-            },
-        },
-    },
-]
+tools = list(_TOOL_REGISTRY.values())
