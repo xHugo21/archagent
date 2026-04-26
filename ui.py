@@ -4,6 +4,7 @@ from rich.text import Text
 from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
+from rich import box
 import json
 
 
@@ -25,10 +26,25 @@ class ChatApp:
         )
 
     def display_welcome(self) -> None:
+        logo = Text(
+            "\n".join(
+                [
+                    "    _             _        _                    _   ",
+                    "   / \\   _ __ ___| |__    / \\   __ _  ___ _ __ | |_ ",
+                    "  / _ \\ | '__/ __| '_ \\  / _ \\ / _` |/ _ \\ '_ \\| __|",
+                    " / ___ \\| | | (__| | | |/ ___ \\ (_| |  __/ | | | |_ ",
+                    "/_/   \\_\\_|  \\___|_| |_/_/   \\_\\__, |\\___|_| |_|\\__|",
+                    "                               |___/               ",
+                ]
+            ),
+            style="bold cyan",
+        )
+
         welcome = Panel(
-            Text.assemble("Welcome to ArchAgent", justify="center"),
-            border_style="cyan",
-            padding=(2, 2),
+            logo,
+            border_style="bright_cyan",
+            box=box.ROUNDED,
+            padding=(1, 2),
             title_align="center",
         )
         self.console.print(welcome)
