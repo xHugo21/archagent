@@ -10,7 +10,7 @@ class UserInterface:
         self.console = Console()
         self.running = True
         self.loading = Status(
-            "[grey]Processing...", console=self.console, spinner="dots"
+            "[grey53]Processing...", console=self.console, spinner="dots"
         )
 
     def display_welcome(self) -> None:
@@ -73,6 +73,9 @@ class UserInterface:
 
     def display_agent_message(self, content: str) -> None:
         self._display_message(content, "cyan")
+
+    def display_bang_message(self, content: str) -> None:
+        self._display_message(content, "grey53")
 
     def display_tool_execution(self, tool_name: str, output: str | None = None) -> None:
         content = f"Ran {tool_name}\n"

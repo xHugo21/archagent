@@ -31,7 +31,7 @@ class Session:
                 if self._handle_slash_command(user_input):
                     continue
 
-                elif self._handle_bash_command(user_input):
+                elif self._handle_bang_command(user_input):
                     continue
 
                 self.messages.append({"role": "user", "content": user_input})
@@ -65,13 +65,16 @@ class Session:
 
         return False
 
-    def _handle_bash_command(self, user_input: str) -> bool:
+    def _handle_bang_command(self, user_input: str) -> bool:
         cmd = user_input.strip().lower()
 
         if cmd.startswith("!"):
             bash_command = user_input.strip()[1:].strip()
             try:
-                subprocess.run(bash_command, shell=True, check=True)
+                result = subprocess.run(
+                    bash_command, shell=True, capture_output=True, text=True
+                )
+                self.ui.display_bang_message(result.stdout)
             except subprocess.CalledProcessError as e:
                 print(f"Command failed with exit code {e.returncode}")
             except Exception as e:
