@@ -31,7 +31,6 @@ class Session:
                 if self._handle_slash_command(user_input):
                     continue
 
-                self.ui.display_rule()
                 self.messages.append({"role": "user", "content": user_input})
 
                 self.ui.display_processing()

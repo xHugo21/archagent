@@ -57,8 +57,6 @@ class Agent:
         function_name = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
 
-        self.session.ui.display_tool_execution(function_name)
-
         tool_map = {
             "read_file": lambda a: read_file(
                 a["path"], a.get("start_line", 1), a.get("end_line")
@@ -81,6 +79,8 @@ class Agent:
                 result = handler(args)
             except Exception as e:
                 result = f"Execution Error: {str(e)}"
+
+        self.session.ui.display_tool_execution(function_name, result)
 
         messages_copy.append(
             {
