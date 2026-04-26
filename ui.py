@@ -23,6 +23,7 @@ class UserInterface:
                     " / ___ \\| | | (__| | | |/ ___ \\ (_| |  __/ | | | |_ ",
                     "/_/   \\_\\_|  \\___|_| |_/_/   \\_\\__, |\\___|_| |_|\\__|",
                     "                               |___/               ",
+                    "\n",
                 ]
             ),
             style="bold cyan",
@@ -64,9 +65,5 @@ class UserInterface:
         self.console.clear()
 
     def display_help(self) -> None:
-        help_text = """
-  /exit     - Exit the application
-  /clear    - Clear the screen
-  /help     - Show this help message
-        """
+        help_text = """/exit | /clear | /help"""
         self.console.print(Align.center(help_text))
