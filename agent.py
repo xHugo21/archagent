@@ -1,7 +1,18 @@
 from typing import Any, cast
 from session import Session
 import json
-from tools import tools, run_bash_command
+from tools import (
+    apply_patch,
+    delete_file,
+    edit_file,
+    find_files,
+    list_files,
+    move_file,
+    read_file,
+    search_text,
+    tools,
+    write_file,
+)
 import litellm
 
 
@@ -48,10 +59,28 @@ class Agent:
 
         self.session.ui.display_tool_execution(function_name)
 
-        if function_name == "run_bash_command":
-            result = run_bash_command(args["command"])
-        else:
+        tool_map = {
+            "read_file": lambda a: read_file(
+                a["path"], a.get("start_line", 1), a.get("end_line")
+            ),
+            "edit_file": lambda a: edit_file(a["path"], a["old_text"], a["new_text"]),
+            "write_file": lambda a: write_file(a["path"], a["content"]),
+            "list_files": lambda a: list_files(a.get("path", "."), a.get("recursive", False)),
+            "search_text": lambda a: search_text(a["query"], a.get("path", ".")),
+            "find_files": lambda a: find_files(a["pattern"], a.get("path", ".")),
+            "move_file": lambda a: move_file(a["source_path"], a["destination_path"]),
+            "delete_file": lambda a: delete_file(a["path"], a.get("recursive", False)),
+            "apply_patch": lambda a: apply_patch(a["path"], a["old_text"], a["new_text"]),
+        }
+
+        handler = tool_map.get(function_name)
+        if handler is None:
             result = "Error: Tool not found"
+        else:
+            try:
+                result = handler(args)
+            except Exception as e:
+                result = f"Execution Error: {str(e)}"
 
         messages_copy.append(
             {
