@@ -1,18 +1,7 @@
 from typing import Any, cast
 from session import Session
 import json
-from tools import (
-    apply_patch,
-    delete_file,
-    edit_file,
-    find_files,
-    list_files,
-    move_file,
-    read_file,
-    search_text,
-    tools,
-    write_file,
-)
+import tools as tool_impl
 import litellm
 
 
@@ -32,7 +21,7 @@ class Agent:
                 api_key=self.api_key,
                 messages=messages_copy,
                 stream=False,
-                tools=tools,
+                tools=tool_impl.tools,
             )
 
             response = cast(litellm.ModelResponse, response)
@@ -57,26 +46,20 @@ class Agent:
         function_name = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
 
-        tool_map = {
-            "read_file": lambda a: read_file(
-                a["path"], a.get("start_line", 1), a.get("end_line")
-            ),
-            "edit_file": lambda a: edit_file(a["path"], a["old_text"], a["new_text"]),
-            "write_file": lambda a: write_file(a["path"], a["content"]),
-            "list_files": lambda a: list_files(a.get("path", "."), a.get("recursive", False)),
-            "search_text": lambda a: search_text(a["query"], a.get("path", ".")),
-            "find_files": lambda a: find_files(a["pattern"], a.get("path", ".")),
-            "move_file": lambda a: move_file(a["source_path"], a["destination_path"]),
-            "delete_file": lambda a: delete_file(a["path"], a.get("recursive", False)),
-            "apply_patch": lambda a: apply_patch(a["path"], a["old_text"], a["new_text"]),
-        }
+        handler = getattr(tool_impl, function_name, None)
 
-        handler = tool_map.get(function_name)
-        if handler is None:
-            result = "Error: Tool not found"
+        if not callable(handler):
+            result: str = "Error: Tool not found"
         else:
             try:
-                result = handler(args)
+                raw_result = handler(**args)
+                result = (
+                    raw_result
+                    if isinstance(raw_result, str)
+                    else json.dumps(raw_result)
+                )
+            except TypeError as e:
+                result = f"Execution Error: Invalid tool arguments - {str(e)}"
             except Exception as e:
                 result = f"Execution Error: {str(e)}"
 
