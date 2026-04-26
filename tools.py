@@ -64,7 +64,6 @@ def tool(description: str):
 
             if param.default is not inspect._empty:
                 default_value = param.default
-                # Keep defaults JSON-safe where possible.
                 try:
                     json.dumps(default_value)
                     prop_schema["default"] = default_value
@@ -148,6 +147,8 @@ def write_file(path: str, content: str) -> str:
     try:
         file_path = _resolve_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        if not content.endswith("\n"):
+            content += "\n"
         file_path.write_text(content, encoding="utf-8")
         return "OK"
     except Exception as e:
