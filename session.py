@@ -1,5 +1,14 @@
-from ui import UserInterface, Message
+from ui import UserInterface
 from typing import Callable
+from dataclasses import dataclass
+
+
+@dataclass
+class Message:
+    role: str
+    content: str
+    tool_call_id: str | None = None
+    function_name: str | None = None
 
 
 class Session:
@@ -22,16 +31,15 @@ class Session:
                 if self._handle_slash_command(user_input):
                     continue
 
-                user_msg = Message(role="user", content=user_input)
-                self.ui.display_message(user_msg)
+                self.ui.display_rule()
                 self.messages.append({"role": "user", "content": user_input})
 
                 self.ui.display_processing()
                 response, self.messages = self.agent_callback(user_input, self.messages)
                 self.ui.stop_processing()
 
-                agent_msg = Message(role="assistant", content=response)
-                self.ui.display_message(agent_msg)
+                self.ui.display_agent_message(response)
+                self.messages.append({"role": "assistant", "content": response})
 
             except KeyboardInterrupt:
                 self.ui.running = False
