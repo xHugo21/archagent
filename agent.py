@@ -1,15 +1,15 @@
 from typing import Any, cast
-from ui import InteractiveSession, Message
+from session import Session
 import json
 from tools import tools, run_bash_command
 import litellm
 
 
 class Agent:
-    def __init__(self, model: str, api_key: str, ui: InteractiveSession):
+    def __init__(self, model: str, api_key: str, session: Session):
         self.model = model
         self.api_key = api_key
-        self.ui = ui
+        self.session = session
 
     def run(self, user_prompt: str, messages: list[Any]) -> tuple[str, list[Any]]:
         messages_copy = messages.copy()
@@ -46,26 +46,12 @@ class Agent:
         function_name = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
 
-        self.ui.app.display_message(
-            Message(
-                role="tool",
-                content=f"Running: {function_name} with args {json.dumps(args)}",
-                function_name=function_name,
-            )
-        )
+        self.session.ui.display_tool_execution(function_name)
 
         if function_name == "run_bash_command":
             result = run_bash_command(args["command"])
         else:
             result = "Error: Tool not found"
-
-        self.ui.app.display_message(
-            Message(
-                role="tool",
-                content=result,
-                function_name=function_name,
-            )
-        )
 
         messages_copy.append(
             {

@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import litellm
-from ui import InteractiveSession
+from session import Session
 from agent import Agent
 
 litellm.suppress_debug_info = True
@@ -29,7 +29,7 @@ def main():
     model, api_key = get_env_vars()
     messages = initialize_messages()
 
-    session = InteractiveSession(messages)
+    session = Session(messages)
     agent = Agent(model, api_key, session)
 
     session.run(agent.run)
