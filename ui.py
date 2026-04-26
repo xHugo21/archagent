@@ -10,7 +10,7 @@ class UserInterface:
         self.console = Console()
         self.running = True
         self.loading = Status(
-            "[cyan] Processing...", console=self.console, spinner="dots"
+            "[grey]Processing...", console=self.console, spinner="dots"
         )
 
     def display_welcome(self) -> None:
@@ -96,6 +96,7 @@ class UserInterface:
     def clear_screen(self) -> None:
         self.console.clear()
         self.display_welcome()
+        self.display_help()
 
     def display_help(self) -> None:
         help_text = """/exit | /clear | /help"""

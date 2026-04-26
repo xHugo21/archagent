@@ -22,8 +22,7 @@ class Session:
         self, agent_callback: Callable[[str, list[dict]], tuple[str, list[dict]]]
     ) -> None:
         self.agent_callback = agent_callback
-        self.ui.display_welcome()
-        self.ui.display_help()
+        self.ui.clear_screen()
 
         while self.ui.running:
             try:
