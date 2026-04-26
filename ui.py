@@ -95,6 +95,7 @@ class UserInterface:
 
     def clear_screen(self) -> None:
         self.console.clear()
+        self.display_welcome()
 
     def display_help(self) -> None:
         help_text = """/exit | /clear | /help"""
