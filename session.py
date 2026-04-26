@@ -1,6 +1,7 @@
 from ui import UserInterface
 from typing import Callable
 from dataclasses import dataclass
+import subprocess
 
 
 @dataclass
@@ -31,6 +32,9 @@ class Session:
                 if self._handle_slash_command(user_input):
                     continue
 
+                elif self._handle_bash_command(user_input):
+                    continue
+
                 self.messages.append({"role": "user", "content": user_input})
 
                 self.ui.display_processing()
@@ -58,6 +62,21 @@ class Session:
 
         if cmd == "/help":
             self.ui.display_help()
+            return True
+
+        return False
+
+    def _handle_bash_command(self, user_input: str) -> bool:
+        cmd = user_input.strip().lower()
+
+        if cmd.startswith("!"):
+            bash_command = user_input.strip()[1:].strip()
+            try:
+                subprocess.run(bash_command, shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Command failed with exit code {e.returncode}")
+            except Exception as e:
+                print(f"An error occurred: {e}")
             return True
 
         return False
