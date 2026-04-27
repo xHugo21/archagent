@@ -1,7 +1,9 @@
-from ui import UserInterface
-from typing import Callable
-from dataclasses import dataclass
 import subprocess
+from dataclasses import dataclass
+from typing import Callable
+
+from ui import UserInterface
+from utils import resolve_path
 
 
 @dataclass
@@ -13,10 +15,28 @@ class Message:
 
 
 class Session:
-    def __init__(self, messages: list[dict]):
+    def __init__(self):
         self.ui = UserInterface()
         self.agent_callback = None
-        self.messages: list[dict] = messages
+        self.messages: list[dict] = self._initialize_messages()
+
+    def _get_agents_md(self) -> str | None:
+        path = resolve_path(".AGENTS.md")
+        try:
+            with open(path, "r") as f:
+                return f.read()
+        except Exception:
+            return None
+
+    def _initialize_messages(self) -> list[dict]:
+        with open(resolve_path("prompts/master.txt"), "r") as f:
+            system_prompt = f.read()
+
+        agents_md = self._get_agents_md()
+        if agents_md is not None:
+            system_prompt = f"{system_prompt.rstrip()}\n\n{agents_md.strip()}"
+
+        return [{"role": "system", "content": system_prompt}]
 
     def run(
         self, agent_callback: Callable[[str, list[dict]], tuple[str, list[dict]]]

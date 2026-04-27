@@ -1,15 +1,26 @@
-from typing import Any, cast
-from session import Session
 import json
-import tools as tool_impl
+import os
+from typing import Any, cast
+
+from dotenv import load_dotenv
 import litellm
+
+from session import Session
+import tools as tool_impl
 
 
 class Agent:
-    def __init__(self, model: str, api_key: str, session: Session):
-        self.model = model
-        self.api_key = api_key
+    def __init__(self, session: Session):
+        self.model, self.api_key = self._get_env_vars()
         self.session = session
+
+    def _get_env_vars(self) -> tuple[str, str]:
+        load_dotenv()
+
+        model = os.environ["LITELLM_MODEL"] or ""
+        api_key = os.environ["LITELLM_API_KEY"] or ""
+
+        return model, api_key
 
     def run(self, user_prompt: str, messages: list[Any]) -> tuple[str, list[Any]]:
         messages_copy = messages.copy()
