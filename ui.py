@@ -52,15 +52,30 @@ class UserInterface:
 
         merged_logo = wings[:]
         start = max((len(wings) - len(archagent)) // 2, 0)
+        arch_spans: list[tuple[int, int, int]] = []
+
         for i, line in enumerate(archagent):
             wing_line = merged_logo[start + i]
             mid = len(wing_line) // 2
             half = len(line) // 2
+            insert_start = mid - half
+            insert_end = insert_start + len(line)
             merged_logo[start + i] = (
-                wing_line[: mid - half] + line + wing_line[mid + (len(line) - half) :]
+                wing_line[:insert_start] + line + wing_line[insert_end:]
             )
+            arch_spans.append((start + i, insert_start, insert_end))
 
-        logo = Text("\n".join(merged_logo + ["\n"]), style="bold cyan")
+        logo_content = "\n".join(merged_logo) + "\n"
+        logo = Text(logo_content, style="bold white")
+
+        line_start = 0
+        for line_index, merged_line in enumerate(merged_logo):
+            for span_line, col_start, col_end in arch_spans:
+                if span_line == line_index:
+                    logo.stylize("bold cyan", line_start + col_start, line_start + col_end)
+                    break
+            line_start += len(merged_line) + 1
+
         self.console.print(Align.center(logo))
 
     def display_rule(self, color: str = "white") -> None:
