@@ -5,7 +5,12 @@ from typing import Union, get_origin, get_args, Any
 WORKSPACE_ROOT = Path.cwd().resolve()
 
 
-def resolve_path(path: str) -> Path:
+def resolve_user_path(path: str) -> Path:
+    candidate = Path(path).expanduser().resolve()
+    return candidate
+
+
+def resolve_workspace_path(path: str) -> Path:
     candidate = (WORKSPACE_ROOT / path).resolve()
     if not str(candidate).startswith(str(WORKSPACE_ROOT)):
         raise ValueError("Path escapes workspace root")

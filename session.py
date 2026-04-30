@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from ui import UserInterface
-from utils import resolve_path
+from utils import resolve_workspace_path, resolve_user_path
 
 
 @dataclass
@@ -25,15 +25,20 @@ class Session:
         self.model: str = ""
 
     def _get_agents_md(self) -> str | None:
-        path = resolve_path(".AGENTS.md")
-        try:
-            with open(path, "r") as f:
-                return f.read()
-        except Exception:
-            return None
+        workspace_path = resolve_workspace_path(".AGENTS.md")
+        user_path = resolve_user_path("~/.agents/AGENTS.md")
+
+        for path in (workspace_path, user_path):
+            try:
+                with open(path, "r") as f:
+                    return f.read()
+            except FileNotFoundError:
+                continue
+            except Exception:
+                continue
 
     def _initialize_messages(self) -> list[dict]:
-        with open(resolve_path("master.txt"), "r") as f:
+        with open(resolve_workspace_path("master.txt"), "r") as f:
             system_prompt = f.read()
 
         agents_md = self._get_agents_md()

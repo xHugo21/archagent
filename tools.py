@@ -5,7 +5,7 @@ import json
 import shutil
 import subprocess
 from typing import Any, get_type_hints
-from utils import WORKSPACE_ROOT, resolve_path, python_type_to_schema
+from utils import WORKSPACE_ROOT, resolve_workspace_path, python_type_to_schema
 
 _TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 
@@ -59,7 +59,7 @@ def tool(description: str):
 @tool("Read a UTF-8 text file. Optionally limit by start and end line numbers.")
 def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> str:
     try:
-        file_path = resolve_path(path)
+        file_path = resolve_workspace_path(path)
         if not file_path.exists() or not file_path.is_file():
             return f"Error: File not found: {path}"
 
@@ -83,7 +83,7 @@ def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> st
 @tool("Edit a file by replacing one unique exact text block with new text.")
 def edit_file(path: str, old_text: str, new_text: str) -> str:
     try:
-        file_path = resolve_path(path)
+        file_path = resolve_workspace_path(path)
         if not file_path.exists() or not file_path.is_file():
             return f"Error: File not found: {path}"
 
@@ -105,7 +105,7 @@ def edit_file(path: str, old_text: str, new_text: str) -> str:
 @tool("Create or overwrite a UTF-8 text file.")
 def write_file(path: str, content: str) -> str:
     try:
-        file_path = resolve_path(path)
+        file_path = resolve_workspace_path(path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if not content.endswith("\n"):
             content += "\n"
@@ -118,7 +118,7 @@ def write_file(path: str, content: str) -> str:
 @tool("List files and directories under a path.")
 def list_files(path: str = ".", recursive: bool = False) -> str:
     try:
-        base = resolve_path(path)
+        base = resolve_workspace_path(path)
         if not base.exists() or not base.is_dir():
             return f"Error: Directory not found: {path}"
 
@@ -133,7 +133,7 @@ def list_files(path: str = ".", recursive: bool = False) -> str:
 @tool("Search for text in files under a path and return matching lines.")
 def search_text(query: str, path: str = ".") -> str:
     try:
-        base = resolve_path(path)
+        base = resolve_workspace_path(path)
         if not base.exists():
             return f"Error: Path not found: {path}"
 
@@ -170,7 +170,7 @@ def search_text(query: str, path: str = ".") -> str:
 @tool("Find files matching a glob pattern under a path.")
 def find_files(pattern: str, path: str = ".") -> str:
     try:
-        base = resolve_path(path)
+        base = resolve_workspace_path(path)
         if not base.exists() or not base.is_dir():
             return f"Error: Directory not found: {path}"
 
@@ -188,8 +188,8 @@ def find_files(pattern: str, path: str = ".") -> str:
 @tool("Move or rename a file or directory.")
 def move_file(source_path: str, destination_path: str) -> str:
     try:
-        source = resolve_path(source_path)
-        destination = resolve_path(destination_path)
+        source = resolve_workspace_path(source_path)
+        destination = resolve_workspace_path(destination_path)
         if not source.exists():
             return f"Error: Source not found: {source_path}"
 
@@ -203,7 +203,7 @@ def move_file(source_path: str, destination_path: str) -> str:
 @tool("Delete a file. Can also delete a directory if recursive=true.")
 def delete_file(path: str, recursive: bool = False) -> str:
     try:
-        target = resolve_path(path)
+        target = resolve_workspace_path(path)
         if not target.exists():
             return f"Error: Path not found: {path}"
 
