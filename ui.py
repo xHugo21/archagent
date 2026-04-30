@@ -3,6 +3,7 @@ from rich.console import Console
 from rich.status import Status
 from rich.align import Align
 from rich.rule import Rule
+from rich.table import Table
 
 
 class UserInterface:
@@ -119,3 +120,30 @@ class UserInterface:
     def display_help(self) -> None:
         help_text = """/exit | /clear | /help"""
         self.console.print(Align.center(help_text))
+
+    def display_footer(
+        self,
+        used_tokens: int,
+        context_window: int | None,
+        cwd: str,
+        model: str,
+    ) -> None:
+        used_text = str(used_tokens)
+        context_text = "-" if context_window is None else str(context_window)
+
+        percent_text = "-"
+        if context_window is not None and context_window > 0:
+            percent_text = f"{(used_tokens / context_window) * 100:.1f}%"
+
+        model_text = model or "-"
+
+        footer = Table.grid(expand=True)
+        footer.add_column(justify="left")
+        footer.add_column(justify="center")
+        footer.add_column(justify="right")
+        footer.add_row(
+            f"[grey53]{cwd}[/grey53]",
+            f"[grey53]tokens: {used_text}/{context_text} ({percent_text})[/grey53]",
+            f"[grey53]{model_text}[/grey53]",
+        )
+        self.console.print(footer)

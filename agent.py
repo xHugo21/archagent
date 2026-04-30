@@ -11,8 +11,10 @@ import tools as tool_impl
 
 class Agent:
     def __init__(self, session: Session):
-        self.model, self.api_key = self._get_env_vars()
+        model, self.api_key = self._get_env_vars()
         self.session = session
+        self.session.model = model
+        self.session.context_window = self._get_context_window(model)
 
     def _get_env_vars(self) -> tuple[str, str]:
         load_dotenv()
@@ -22,13 +24,37 @@ class Agent:
 
         return model, api_key
 
+    def _get_context_window(self, model: str) -> int | None:
+        try:
+            get_max_tokens = getattr(litellm, "get_max_tokens", None)
+            if callable(get_max_tokens):
+                max_tokens = get_max_tokens(model)
+                if isinstance(max_tokens, int) and max_tokens > 0:
+                    return max_tokens
+
+            get_model_info = getattr(litellm, "get_model_info", None)
+            if callable(get_model_info):
+                info = get_model_info(model)
+                if isinstance(info, dict):
+                    for key in ("max_input_tokens", "max_tokens", "max_output_tokens"):
+                        value = info.get(key)
+                        if isinstance(value, int) and value > 0:
+                            return value
+        except Exception:
+            pass
+
+        return None
+
+    def _accumulate_used_tokens(self, response: litellm.ModelResponse) -> None:
+        self.session.used_tokens += response["usage"]["total_tokens"]
+
     def run(self, user_prompt: str, messages: list[Any]) -> tuple[str, list[Any]]:
         messages_copy = messages.copy()
         messages_copy.append({"role": "user", "content": user_prompt})
 
         while True:
             response = litellm.completion(
-                model=self.model,
+                model=self.session.model,
                 api_key=self.api_key,
                 messages=messages_copy,
                 stream=False,
@@ -36,6 +62,8 @@ class Agent:
             )
 
             response = cast(litellm.ModelResponse, response)
+
+            self._accumulate_used_tokens(response)
 
             message_obj = response.choices[0].message
             message_dict: dict[str, Any] = {

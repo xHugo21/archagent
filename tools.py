@@ -5,7 +5,7 @@ import json
 import shutil
 import subprocess
 from typing import Any, get_type_hints
-from utils import resolve_path, python_type_to_schema
+from utils import WORKSPACE_ROOT, resolve_path, python_type_to_schema
 
 _TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 

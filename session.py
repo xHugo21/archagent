@@ -1,3 +1,4 @@
+import os
 import subprocess
 from dataclasses import dataclass
 from typing import Callable
@@ -19,6 +20,9 @@ class Session:
         self.ui = UserInterface()
         self.agent_callback = None
         self.messages: list[dict] = self._initialize_messages()
+        self.used_tokens: int = 0
+        self.context_window: int | None = None
+        self.model: str = ""
 
     def _get_agents_md(self) -> str | None:
         path = resolve_path(".AGENTS.md")
@@ -61,6 +65,12 @@ class Session:
                 self.ui.stop_processing()
 
                 self.ui.display_agent_message(response)
+                self.ui.display_footer(
+                    self.used_tokens,
+                    self.context_window,
+                    os.getcwd(),
+                    self.model,
+                )
                 self.messages.append({"role": "assistant", "content": response})
 
             except KeyboardInterrupt:
