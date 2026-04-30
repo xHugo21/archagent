@@ -33,7 +33,7 @@ class Session:
             return None
 
     def _initialize_messages(self) -> list[dict]:
-        with open(resolve_path("prompts/master.txt"), "r") as f:
+        with open(resolve_path("master.txt"), "r") as f:
             system_prompt = f.read()
 
         agents_md = self._get_agents_md()
