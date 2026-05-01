@@ -25,7 +25,7 @@ class Session:
         self.model: str = ""
 
     def _get_agents_md(self) -> str | None:
-        workspace_path = resolve_workspace_path(".AGENTS.md")
+        workspace_path = resolve_workspace_path("AGENTS.md")
         user_path = resolve_user_path("~/.agents/AGENTS.md")
 
         for path in (workspace_path, user_path):
