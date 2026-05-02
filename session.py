@@ -23,6 +23,7 @@ class Session:
         self.used_tokens: int = 0
         self.context_window: int | None = None
         self.model: str = ""
+        self.permission_mode: str = "normal"
 
     def _get_agents_md(self) -> str | None:
         workspace_path = resolve_workspace_path("AGENTS.md")
@@ -98,6 +99,25 @@ class Session:
             self.ui.display_help()
             return True
 
+        if cmd.startswith("/mode"):
+            parts = user_input.strip().split()
+            if len(parts) == 1:
+                self.ui.display_info_message(
+                    f"Permission mode: {self.permission_mode} (safe | normal | full)"
+                )
+                return True
+
+            next_mode = parts[1].strip().lower()
+            if next_mode not in {"safe", "normal", "full"}:
+                self.ui.display_error("Invalid mode. Use: /mode safe | normal | full")
+                return True
+
+            self.permission_mode = next_mode
+            self.ui.display_info_message(
+                f"Permission mode set to: {self.permission_mode}"
+            )
+            return True
+
         return False
 
     def _handle_bang_command(self, user_input: str) -> bool:
@@ -109,7 +129,7 @@ class Session:
                 result = subprocess.run(
                     bash_command, shell=True, capture_output=True, text=True
                 )
-                self.ui.display_bang_message(result.stdout)
+                self.ui.display_info_message(result.stdout)
             except subprocess.CalledProcessError as e:
                 print(f"Command failed with exit code {e.returncode}")
             except Exception as e:

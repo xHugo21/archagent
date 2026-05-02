@@ -1,3 +1,5 @@
+import json
+
 from rich.text import Text
 from rich.console import Console
 from rich.status import Status
@@ -73,7 +75,9 @@ class UserInterface:
         for line_index, merged_line in enumerate(merged_logo):
             for span_line, col_start, col_end in arch_spans:
                 if span_line == line_index:
-                    logo.stylize("bold cyan", line_start + col_start, line_start + col_end)
+                    logo.stylize(
+                        "bold cyan", line_start + col_start, line_start + col_end
+                    )
                     break
             line_start += len(merged_line) + 1
 
@@ -90,7 +94,7 @@ class UserInterface:
     def display_agent_message(self, content: str) -> None:
         self._display_message(content, "cyan")
 
-    def display_bang_message(self, content: str) -> None:
+    def display_info_message(self, content: str) -> None:
         self._display_message(content, "grey53")
 
     def display_tool_execution(self, tool_name: str, output: str | None = None) -> None:
@@ -98,6 +102,30 @@ class UserInterface:
         if output is not None:
             content += f"\nOutput:\n{output}"
         self._display_message(content, "magenta")
+
+    def confirm_tool_execution(
+        self,
+        tool_name: str,
+        args: dict,
+        reason: str,
+        mode: str,
+    ) -> bool:
+        self.display_rule("yellow")
+        self.console.print(
+            Text(f"Approval needed for {tool_name} (mode: {mode})", style="yellow")
+        )
+        self.console.print(Text(f"Reason: {reason}", style="yellow"))
+        self.console.print(Text("Arguments:", style="yellow"))
+        self.console.print(
+            Text(json.dumps(args, indent=2, ensure_ascii=False), style="yellow")
+        )
+        answer = (
+            self.console.input(Text("Allow? [y/N]: ", style="bold yellow"))
+            .strip()
+            .lower()
+        )
+        self.display_rule("yellow")
+        return answer in {"y", "yes"}
 
     def display_error(self, content: str) -> None:
         self._display_message(content, "red")
@@ -118,7 +146,7 @@ class UserInterface:
         self.display_help()
 
     def display_help(self) -> None:
-        help_text = """/exit | /clear | /help"""
+        help_text = """/exit | /clear | /help | /mode"""
         self.console.print(Align.center(help_text))
 
     def display_footer(

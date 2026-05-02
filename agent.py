@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import litellm
 
 from session import Session
+from permissions import PermissionManager
 import tools as tool_impl
 
 
@@ -13,6 +14,7 @@ class Agent:
     def __init__(self, session: Session):
         model, self.api_key = self._get_env_vars()
         self.session = session
+        self.permission_manager = PermissionManager()
         self.session.model = model
         self.session.context_window = self._get_context_window(model)
 
@@ -87,8 +89,44 @@ class Agent:
 
         handler = getattr(tool_impl, function_name, None)
 
-        if not callable(handler):
-            result: str = "Error: Tool not found"
+        decision = self.permission_manager.check(
+            tool_name=function_name,
+            args=args,
+            mode=self.session.permission_mode,
+        )
+
+        approved = decision.action == "allow"
+
+        if decision.action == "deny":
+            result: str = f"Permission denied: {decision.reason}"
+        elif decision.action == "ask":
+            self.session.ui.stop_processing()
+            approved = self.session.ui.confirm_tool_execution(
+                tool_name=function_name,
+                args=args,
+                reason=decision.reason,
+                mode=self.session.permission_mode,
+            )
+            self.session.ui.display_processing()
+
+            if not approved:
+                result = "Permission denied: User rejected approval request"
+            elif not callable(handler):
+                result = "Error: Tool not found"
+            else:
+                try:
+                    raw_result = handler(**args)
+                    result = (
+                        raw_result
+                        if isinstance(raw_result, str)
+                        else json.dumps(raw_result)
+                    )
+                except TypeError as e:
+                    result = f"Execution Error: Invalid tool arguments - {str(e)}"
+                except Exception as e:
+                    result = f"Execution Error: {str(e)}"
+        elif not callable(handler):
+            result = "Error: Tool not found"
         else:
             try:
                 raw_result = handler(**args)
