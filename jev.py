@@ -50,31 +50,31 @@ def _ask(state: dict, questions: dict) -> dict:
     return body["answers"]
 
 
-def rank_files(query: str, paths: list[str]) -> tuple[float, list[tuple[str, float]]]:
+def rank_options(query: str, options: list[str]) -> tuple[float, list[tuple[str, float]]]:
     answers = _ask(
-        state={"query": query, "repository": {"files": paths}},
+        state={"query": query, "repository": {"candidates": options}},
         questions={
-            "best_file": {
+            "best": {
                 "type": "choice",
                 "instructions": (
-                    "Which of `repository.files` is most likely to contain the code "
-                    "that answers `query`? Pick the single most relevant path."
+                    "Which of `repository.candidates` is most likely to contain the "
+                    "code that answers `query`? Pick the single most relevant one."
                 ),
-                "criteria": {path: None for path in paths},
+                "criteria": {option: None for option in options},
             },
             "answer_exists": {
                 "type": "noul",
                 "instructions": (
-                    "Does any file in `repository.files` likely contain code that "
-                    "answers `query`?"
+                    "Does any entry in `repository.candidates` likely contain code "
+                    "that answers `query`?"
                 ),
             },
         },
     )
 
-    probabilities = answers["best_file"].get("probabilities", {})
+    probabilities = answers["best"].get("probabilities", {})
     ranked = sorted(
-        ((path, probabilities.get(path, 0.0)) for path in paths),
+        ((option, probabilities.get(option, 0.0)) for option in options),
         key=lambda item: item[1],
         reverse=True,
     )

@@ -31,6 +31,8 @@ def resolve_workspace_path(path: str) -> Path:
 
 
 def workspace_files(base: Path) -> list[str]:
+    files: list[str] = []
+
     try:
         result = subprocess.run(
             ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
@@ -39,21 +41,24 @@ def workspace_files(base: Path) -> list[str]:
             text=True,
             timeout=10,
         )
-        if result.returncode == 0 and result.stdout.strip():
-            return sorted(
-                line
-                for line in result.stdout.splitlines()
-                if line.strip()
-                and (WORKSPACE_ROOT / line).resolve().is_relative_to(base)
-            )
+        if result.returncode == 0:
+            files = result.stdout.splitlines()
     except Exception:
         pass
 
+    if not files:
+        files = [
+            str(file_path.relative_to(WORKSPACE_ROOT))
+            for file_path in base.rglob("*")
+            if file_path.is_file()
+        ]
+
     return sorted(
-        str(file_path.relative_to(WORKSPACE_ROOT))
-        for file_path in base.rglob("*")
-        if file_path.is_file()
-        and not any(part in IGNORED_DIRS for part in file_path.relative_to(base).parts)
+        file_path
+        for file_path in files
+        if file_path.strip()
+        and not any(part in IGNORED_DIRS for part in Path(file_path).parts)
+        and (WORKSPACE_ROOT / file_path).resolve().is_relative_to(base)
     )
 
 

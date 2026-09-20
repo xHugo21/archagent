@@ -10,6 +10,7 @@ from typing import Any, get_type_hints
 from dotenv import load_dotenv
 
 from utils import (
+    IGNORED_DIRS,
     WORKSPACE_ROOT,
     python_type_to_schema,
     resolve_workspace_path,
@@ -19,6 +20,8 @@ from utils import (
 load_dotenv()
 
 _TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
+
+MAX_OPTIONS = 250
 
 
 def tool(description: str, requires_env: str | None = None):
@@ -136,10 +139,16 @@ def list_files(path: str = ".", recursive: bool = False) -> str:
         if not base.exists() or not base.is_dir():
             return f"Error: Directory not found: {path}"
 
-        iterator = base.rglob("*") if recursive else base.iterdir()
-        files = [str(p.relative_to(WORKSPACE_ROOT)) for p in iterator]
-        files.sort()
-        return "\n".join(files)
+        if recursive:
+            entries = workspace_files(base)
+        else:
+            entries = sorted(
+                str(entry.relative_to(WORKSPACE_ROOT))
+                for entry in base.iterdir()
+                if not any(part in IGNORED_DIRS for part in entry.relative_to(base).parts)
+            )
+
+        return "\n".join(entries)
     except Exception as e:
         return f"Execution Error: {str(e)}"
 
@@ -187,7 +196,7 @@ def search_text(query: str, path: str = ".") -> str:
 )
 def semantic_search(query: str, path: str = ".", max_results: int = 5) -> str:
     try:
-        from jev import rank_files
+        from jev import rank_options
 
         base = resolve_workspace_path(path)
         if not base.exists() or not base.is_dir():
@@ -196,10 +205,13 @@ def semantic_search(query: str, path: str = ".", max_results: int = 5) -> str:
         files = workspace_files(base)
         if not files:
             return "Error: No files found"
-        if len(files) > 255:
-            return f"Error: Too many files ({len(files)}); narrow the path"
+        if len(files) > MAX_OPTIONS:
+            return (
+                f"Error: Too many files ({len(files)}). Pass a narrower path, "
+                "for example a subdirectory."
+            )
 
-        exists, ranked = rank_files(query, files)
+        exists, ranked = rank_options(query, files)
         if exists < 0.35:
             return "No file appears to answer this query"
 
