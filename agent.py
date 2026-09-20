@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any, cast
 
 from dotenv import load_dotenv
@@ -83,6 +84,20 @@ class Agent:
             for tool_call in message_obj.tool_calls:
                 self._execute_tool(tool_call, messages_copy)
 
+    def _run_tool(self, handler: Any, args: dict[str, Any]) -> tuple[str, float]:
+        started = time.perf_counter()
+        try:
+            raw_result = handler(**args)
+            result = (
+                raw_result if isinstance(raw_result, str) else json.dumps(raw_result)
+            )
+        except TypeError as e:
+            result = f"Execution Error: Invalid tool arguments - {str(e)}"
+        except Exception as e:
+            result = f"Execution Error: {str(e)}"
+
+        return result, time.perf_counter() - started
+
     def _execute_tool(self, tool_call: Any, messages_copy: list[Any]) -> None:
         function_name = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
@@ -96,6 +111,7 @@ class Agent:
         )
 
         approved = decision.action == "allow"
+        duration: float | None = None
 
         if decision.action == "deny":
             result: str = f"Permission denied: {decision.reason}"
@@ -114,33 +130,13 @@ class Agent:
             elif not callable(handler):
                 result = "Error: Tool not found"
             else:
-                try:
-                    raw_result = handler(**args)
-                    result = (
-                        raw_result
-                        if isinstance(raw_result, str)
-                        else json.dumps(raw_result)
-                    )
-                except TypeError as e:
-                    result = f"Execution Error: Invalid tool arguments - {str(e)}"
-                except Exception as e:
-                    result = f"Execution Error: {str(e)}"
+                result, duration = self._run_tool(handler, args)
         elif not callable(handler):
             result = "Error: Tool not found"
         else:
-            try:
-                raw_result = handler(**args)
-                result = (
-                    raw_result
-                    if isinstance(raw_result, str)
-                    else json.dumps(raw_result)
-                )
-            except TypeError as e:
-                result = f"Execution Error: Invalid tool arguments - {str(e)}"
-            except Exception as e:
-                result = f"Execution Error: {str(e)}"
+            result, duration = self._run_tool(handler, args)
 
-        self.session.ui.display_tool_execution(function_name, result)
+        self.session.ui.display_tool_execution(function_name, result, duration)
 
         messages_copy.append(
             {

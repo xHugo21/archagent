@@ -97,8 +97,16 @@ class UserInterface:
     def display_info_message(self, content: str) -> None:
         self._display_message(content, "grey53")
 
-    def display_tool_execution(self, tool_name: str, output: str | None = None) -> None:
-        content = f"Ran {tool_name}\n"
+    def display_tool_execution(
+        self,
+        tool_name: str,
+        output: str | None = None,
+        duration: float | None = None,
+    ) -> None:
+        content = f"Ran {tool_name}"
+        if duration is not None:
+            content += f" ({duration:.3f}s)"
+        content += "\n"
         if output is not None:
             content += f"\nOutput:\n{output}"
         self._display_message(content, "magenta")
