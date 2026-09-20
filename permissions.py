@@ -6,7 +6,13 @@ from typing import Any
 
 from utils import WORKSPACE_ROOT, resolve_workspace_path
 
-READ_ONLY_TOOLS = {"read_file", "list_files", "search_text", "find_files"}
+READ_ONLY_TOOLS = {
+    "read_file",
+    "list_files",
+    "search_text",
+    "find_files",
+    "semantic_search",
+}
 WRITE_TOOLS = {"edit_file", "write_file", "move_file", "apply_patch"}
 DESTRUCTIVE_TOOLS = {"delete_file"}
 KNOWN_TOOLS = READ_ONLY_TOOLS | WRITE_TOOLS | DESTRUCTIVE_TOOLS

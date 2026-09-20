@@ -2,16 +2,30 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import shutil
 import subprocess
 from typing import Any, get_type_hints
-from utils import WORKSPACE_ROOT, resolve_workspace_path, python_type_to_schema
+
+from dotenv import load_dotenv
+
+from utils import (
+    WORKSPACE_ROOT,
+    python_type_to_schema,
+    resolve_workspace_path,
+    workspace_files,
+)
+
+load_dotenv()
 
 _TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 
 
-def tool(description: str):
+def tool(description: str, requires_env: str | None = None):
     def decorator(func):
+        if requires_env and not os.environ.get(requires_env):
+            return func
+
         signature = inspect.signature(func)
         type_hints = get_type_hints(func)
 
@@ -163,6 +177,36 @@ def search_text(query: str, path: str = ".") -> str:
                 continue
 
         return "\n".join(matches) if matches else "No matches found"
+    except Exception as e:
+        return f"Execution Error: {str(e)}"
+
+
+@tool(
+    "Find repository files most relevant to a natural-language question.",
+    requires_env="JEV_API_KEY",
+)
+def semantic_search(query: str, path: str = ".", max_results: int = 5) -> str:
+    try:
+        from jev import rank_files
+
+        base = resolve_workspace_path(path)
+        if not base.exists() or not base.is_dir():
+            return f"Error: Directory not found: {path}"
+
+        files = workspace_files(base)
+        if not files:
+            return "Error: No files found"
+        if len(files) > 255:
+            return f"Error: Too many files ({len(files)}); narrow the path"
+
+        exists, ranked = rank_files(query, files)
+        if exists < 0.35:
+            return "No file appears to answer this query"
+
+        return "\n".join(
+            f"{file_path} (probability={probability:.2f})"
+            for file_path, probability in ranked[:max_results]
+        )
     except Exception as e:
         return f"Execution Error: {str(e)}"
 

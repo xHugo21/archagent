@@ -1,8 +1,21 @@
+import subprocess
 import types
 from pathlib import Path
 from typing import Union, get_origin, get_args, Any
 
 WORKSPACE_ROOT = Path.cwd().resolve()
+
+IGNORED_DIRS = {
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".commandcode",
+}
 
 
 def resolve_user_path(path: str) -> Path:
@@ -15,6 +28,33 @@ def resolve_workspace_path(path: str) -> Path:
     if not str(candidate).startswith(str(WORKSPACE_ROOT)):
         raise ValueError("Path escapes workspace root")
     return candidate
+
+
+def workspace_files(base: Path) -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return sorted(
+                line
+                for line in result.stdout.splitlines()
+                if line.strip()
+                and (WORKSPACE_ROOT / line).resolve().is_relative_to(base)
+            )
+    except Exception:
+        pass
+
+    return sorted(
+        str(file_path.relative_to(WORKSPACE_ROOT))
+        for file_path in base.rglob("*")
+        if file_path.is_file()
+        and not any(part in IGNORED_DIRS for part in file_path.relative_to(base).parts)
+    )
 
 
 def python_type_to_schema(annotation: Any) -> dict[str, Any]:
