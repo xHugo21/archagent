@@ -117,7 +117,7 @@ class UserInterface:
         args: dict,
         reason: str,
         mode: str,
-    ) -> bool:
+    ) -> str:
         self.display_rule("yellow")
         self.console.print(
             Text(f"Approval needed for {tool_name} (mode: {mode})", style="yellow")
@@ -128,12 +128,21 @@ class UserInterface:
             Text(json.dumps(args, indent=2, ensure_ascii=False), style="yellow")
         )
         answer = (
-            self.console.input(Text("Allow? [y/N]: ", style="bold yellow"))
+            self.console.input(
+                Text(
+                    "Allow? [y/N] (a = yes + stop asking this session): ",
+                    style="bold yellow",
+                )
+            )
             .strip()
             .lower()
         )
         self.display_rule("yellow")
-        return answer in {"y", "yes"}
+
+        if answer in {"a", "auto"}:
+            return "auto"
+
+        return "yes" if answer in {"y", "yes"} else "no"
 
     def display_error(self, content: str) -> None:
         self._display_message(content, "red")
@@ -154,7 +163,7 @@ class UserInterface:
         self.display_help()
 
     def display_help(self) -> None:
-        help_text = """/exit | /clear | /help | /mode"""
+        help_text = """/exit | /clear | /help | /mode | /auto"""
         self.console.print(Align.center(help_text))
 
     def display_footer(
@@ -163,6 +172,7 @@ class UserInterface:
         context_window: int | None,
         cwd: str,
         model: str,
+        auto_approve: bool = False,
     ) -> None:
         used_text = str(used_tokens)
         context_text = "-" if context_window is None else str(context_window)
@@ -172,6 +182,7 @@ class UserInterface:
             percent_text = f"{(used_tokens / context_window) * 100:.1f}%"
 
         model_text = model or "-"
+        auto_text = "[yellow]auto-approve[/yellow] · " if auto_approve else ""
 
         footer = Table.grid(expand=True)
         footer.add_column(justify="left")
@@ -180,6 +191,6 @@ class UserInterface:
         footer.add_row(
             f"[grey53]{cwd}[/grey53]",
             f"[grey53]tokens: {used_text}/{context_text} ({percent_text})[/grey53]",
-            f"[grey53]{model_text}[/grey53]",
+            f"{auto_text}[grey53]{model_text}[/grey53]",
         )
         self.console.print(footer)

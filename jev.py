@@ -10,6 +10,14 @@ from dotenv import load_dotenv
 API_URL = "https://openrouter.ai/api/alpha/decisions"
 DEFAULT_MODEL = "typesafe/jev-1.13"
 
+RISK_CLASSES = {
+    "benign_read": "Only reads data and changes nothing",
+    "reversible_local_change": "Edits, creates, or moves project files the user can undo",
+    "data_loss": "Deletes content or overwrites existing work with no way back",
+    "secret_exposure": "Reads, writes, or exposes credentials, keys, or environment files",
+    "external_side_effect": "Runs commands or reaches outside the workspace",
+}
+
 
 def _credentials() -> tuple[str, str]:
     load_dotenv()
@@ -83,3 +91,45 @@ def rank_options(query: str, options: list[str]) -> tuple[float, list[tuple[str,
     exists = exists_answer.get("noul", exists_answer.get("probability", 0.0))
 
     return float(exists), ranked
+
+
+def assess_operation(
+    tool_name: str,
+    args: dict,
+    reason: str,
+    mode: str,
+) -> tuple[float, str]:
+    answers = _ask(
+        state={
+            "operation": {
+                "tool": tool_name,
+                "arguments": args,
+                "flagged_reason": reason,
+                "permission_mode": mode,
+            }
+        },
+        questions={
+            "safe_to_run": {
+                "type": "noul",
+                "instructions": (
+                    "Is `operation` safe to run without asking the user first? It "
+                    "is safe only if it stays inside the project, can be undone, "
+                    "and exposes no credentials."
+                ),
+                "criteria": {
+                    "true": "Reversible, scoped to the project, no credentials involved",
+                    "false": "Irreversible, or reaches outside the project, or touches credentials",
+                },
+            },
+            "risk_class": {
+                "type": "choice",
+                "instructions": "Which risk class best describes `operation`?",
+                "criteria": RISK_CLASSES,
+            },
+        },
+    )
+
+    safe_answer = answers.get("safe_to_run", {})
+    safe = safe_answer.get("noul", safe_answer.get("probability", 0.0))
+
+    return float(safe), answers.get("risk_class", {}).get("choice", "unknown")

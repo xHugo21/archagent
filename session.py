@@ -24,6 +24,7 @@ class Session:
         self.context_window: int | None = None
         self.model: str = ""
         self.permission_mode: str = "normal"
+        self.auto_approve: bool = False
 
     def _get_agents_md(self) -> str | None:
         workspace_path = resolve_workspace_path("AGENTS.md")
@@ -76,6 +77,7 @@ class Session:
                     self.context_window,
                     os.getcwd(),
                     self.model,
+                    self.auto_approve,
                 )
                 self.messages.append({"role": "assistant", "content": response})
 
@@ -116,6 +118,26 @@ class Session:
             self.ui.display_info_message(
                 f"Permission mode set to: {self.permission_mode}"
             )
+            return True
+
+        if cmd.startswith("/auto"):
+            parts = user_input.strip().split()
+            if len(parts) == 1:
+                state = "on" if self.auto_approve else "off"
+                self.ui.display_info_message(f"Auto-approve: {state} (on | off)")
+                return True
+
+            value = parts[1].strip().lower()
+            if value not in {"on", "off"}:
+                self.ui.display_error("Invalid value. Use: /auto on | /auto off")
+                return True
+
+            if value == "on" and not os.environ.get("JEV_API_KEY"):
+                self.ui.display_error("Auto-approve requires JEV_API_KEY to be set")
+                return True
+
+            self.auto_approve = value == "on"
+            self.ui.display_info_message(f"Auto-approve set to: {value}")
             return True
 
         return False

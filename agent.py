@@ -10,6 +10,8 @@ from session import Session
 from permissions import PermissionManager
 import tools as tool_impl
 
+AUTO_APPROVE_THRESHOLD = 0.85
+
 
 class Agent:
     def __init__(self, session: Session):
@@ -98,6 +100,30 @@ class Agent:
 
         return result, time.perf_counter() - started
 
+    def _should_auto_approve(
+        self, tool_name: str, args: dict[str, Any], reason: str
+    ) -> bool:
+        from jev import assess_operation
+
+        try:
+            probability, risk_class = assess_operation(
+                tool_name, args, reason, self.session.permission_mode
+            )
+        except Exception as e:
+            self.session.ui.display_error(f"Auto-approve check failed: {e}")
+            return False
+
+        if probability < AUTO_APPROVE_THRESHOLD:
+            self.session.ui.display_info_message(
+                f"Auto-approve declined ({probability:.2f} safe, {risk_class})"
+            )
+            return False
+
+        self.session.ui.display_info_message(
+            f"Auto-approved ({probability:.2f} safe, {risk_class})"
+        )
+        return True
+
     def _execute_tool(self, tool_call: Any, messages_copy: list[Any]) -> None:
         function_name = tool_call.function.name
         args = json.loads(tool_call.function.arguments)
@@ -110,27 +136,38 @@ class Agent:
             mode=self.session.permission_mode,
         )
 
-        approved = decision.action == "allow"
         duration: float | None = None
 
         if decision.action == "deny":
             result: str = f"Permission denied: {decision.reason}"
         elif decision.action == "ask":
-            self.session.ui.stop_processing()
-            approved = self.session.ui.confirm_tool_execution(
-                tool_name=function_name,
-                args=args,
-                reason=decision.reason,
-                mode=self.session.permission_mode,
-            )
-            self.session.ui.display_processing()
-
-            if not approved:
-                result = "Permission denied: User rejected approval request"
-            elif not callable(handler):
+            if not callable(handler):
                 result = "Error: Tool not found"
-            else:
+            elif self.session.auto_approve and self._should_auto_approve(
+                function_name, args, decision.reason
+            ):
                 result, duration = self._run_tool(handler, args)
+            else:
+                self.session.ui.stop_processing()
+                choice = self.session.ui.confirm_tool_execution(
+                    tool_name=function_name,
+                    args=args,
+                    reason=decision.reason,
+                    mode=self.session.permission_mode,
+                )
+                self.session.ui.display_processing()
+
+                if choice == "auto":
+                    self.session.auto_approve = True
+                    self.session.ui.display_info_message(
+                        "Auto-approve enabled for this session"
+                    )
+                    choice = "yes"
+
+                if choice == "yes":
+                    result, duration = self._run_tool(handler, args)
+                else:
+                    result = "Permission denied: User rejected approval request"
         elif not callable(handler):
             result = "Error: Tool not found"
         else:
