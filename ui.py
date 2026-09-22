@@ -1,16 +1,26 @@
 import json
+import os
 
 from rich.text import Text
-from rich.console import Console
+from rich.console import Console, Group
 from rich.status import Status
 from rich.align import Align
 from rich.rule import Rule
 from rich.table import Table
+from rich.panel import Panel
+from rich.box import ROUNDED
+from rich.syntax import Syntax
+from rich.markdown import Markdown
+from rich.padding import Padding
+
+ACCENT = "cyan"
+TOOL_COLOR = "magenta"
+INFO_COLOR = "grey53"
 
 
 class UserInterface:
     def __init__(self):
-        self.console = Console()
+        self.console = Console(highlight=False)
         self.running = True
         self.loading = Status(
             "[grey53]Processing...", console=self.console, spinner="dots"
@@ -86,16 +96,55 @@ class UserInterface:
     def display_rule(self, color: str = "white") -> None:
         self.console.print(Rule(style=color))
 
-    def _display_message(self, content: str, color: str) -> None:
-        self.display_rule(color)
-        self.console.print(Text(content, style=color))
-        self.display_rule(color)
+    def _render_output(self, output: str | None):
+        if output is None:
+            return Text("(no output)", style=INFO_COLOR)
+        if not output.strip():
+            return Text("(empty output)", style=INFO_COLOR)
+
+        stripped = output.strip()
+        if stripped[:1] in "{[":
+            try:
+                parsed = json.loads(stripped)
+            except (ValueError, TypeError):
+                parsed = None
+            if parsed is not None:
+                pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+                return Syntax(
+                    pretty, "json", background_color="default", word_wrap=True
+                )
+
+        return Text(output.rstrip("\n"), overflow="fold")
 
     def display_agent_message(self, content: str) -> None:
-        self._display_message(content, "cyan")
+        content = (content or "").strip()
+        if not content:
+            return
+        self.console.print(Rule(Text("archagent", style=f"bold {ACCENT}"), style=ACCENT))
+        self.console.print(Markdown(content))
+        self.console.print()
 
     def display_info_message(self, content: str) -> None:
-        self._display_message(content, "grey53")
+        self.console.print(
+            Padding(
+                Text.assemble(
+                    ("• ", INFO_COLOR), (content, INFO_COLOR), overflow="fold"
+                ),
+                (0, 0, 0, 2),
+            )
+        )
+
+    def display_error(self, content: str) -> None:
+        self.console.print(
+            Panel(
+                Text(content, style="red", overflow="fold"),
+                title=Text("Error", style="bold red"),
+                title_align="left",
+                border_style="red",
+                box=ROUNDED,
+                padding=(0, 1),
+            )
+        )
 
     def display_tool_execution(
         self,
@@ -103,13 +152,20 @@ class UserInterface:
         output: str | None = None,
         duration: float | None = None,
     ) -> None:
-        content = f"Ran {tool_name}"
+        title = Text.assemble(("Ran ", TOOL_COLOR), (tool_name, f"bold {TOOL_COLOR}"))
         if duration is not None:
-            content += f" ({duration:.3f}s)"
-        content += "\n"
-        if output is not None:
-            content += f"\nOutput:\n{output}"
-        self._display_message(content, "magenta")
+            title.append(f"  {duration:.3f}s", style=INFO_COLOR)
+
+        self.console.print(
+            Panel(
+                self._render_output(output),
+                title=title,
+                title_align="left",
+                border_style=TOOL_COLOR,
+                box=ROUNDED,
+                padding=(0, 1),
+            )
+        )
 
     def confirm_tool_execution(
         self,
@@ -118,15 +174,30 @@ class UserInterface:
         reason: str,
         mode: str,
     ) -> str:
-        self.display_rule("yellow")
-        self.console.print(
-            Text(f"Approval needed for {tool_name} (mode: {mode})", style="yellow")
+        body = Group(
+            Text.assemble(("mode: ", INFO_COLOR), (mode, "yellow"), overflow="fold"),
+            Text.assemble(
+                ("reason: ", INFO_COLOR), (reason, "yellow"), overflow="fold"
+            ),
+            Text("arguments:", style=INFO_COLOR),
+            Syntax(
+                json.dumps(args, indent=2, ensure_ascii=False),
+                "json",
+                background_color="default",
+                word_wrap=True,
+            ),
         )
-        self.console.print(Text(f"Reason: {reason}", style="yellow"))
-        self.console.print(Text("Arguments:", style="yellow"))
         self.console.print(
-            Text(json.dumps(args, indent=2, ensure_ascii=False), style="yellow")
+            Panel(
+                body,
+                title=Text(f"Approval needed: {tool_name}", style="bold yellow"),
+                title_align="left",
+                border_style="yellow",
+                box=ROUNDED,
+                padding=(0, 1),
+            )
         )
+
         answer = (
             self.console.input(
                 Text(
@@ -137,18 +208,14 @@ class UserInterface:
             .strip()
             .lower()
         )
-        self.display_rule("yellow")
 
         if answer in {"a", "auto"}:
             return "auto"
 
         return "yes" if answer in {"y", "yes"} else "no"
 
-    def display_error(self, content: str) -> None:
-        self._display_message(content, "red")
-
-    def get_user_input(self, prompt: str = "> ") -> str:
-        return self.console.input(Text(prompt, style="bold cyan"))
+    def get_user_input(self, prompt: str = "❯ ") -> str:
+        return self.console.input(Text(prompt, style=f"bold {ACCENT}"))
 
     def display_processing(self) -> None:
         self.loading.start()
@@ -163,8 +230,18 @@ class UserInterface:
         self.display_help()
 
     def display_help(self) -> None:
-        help_text = """/exit | /clear | /help | /mode | /auto"""
-        self.console.print(Align.center(help_text))
+        text = Text()
+        text.append(" /exit", style=f"bold {ACCENT}")
+        text.append(" quit    ", style=INFO_COLOR)
+        text.append("/clear", style=f"bold {ACCENT}")
+        text.append(" reset    ", style=INFO_COLOR)
+        text.append("/help", style=f"bold {ACCENT}")
+        text.append(" commands    ", style=INFO_COLOR)
+        text.append("/mode", style=f"bold {ACCENT}")
+        text.append(" permissions    ", style=INFO_COLOR)
+        text.append("/auto", style=f"bold {ACCENT}")
+        text.append(" approvals", style=INFO_COLOR)
+        self.console.print(Align.center(text))
 
     def display_footer(
         self,
@@ -181,16 +258,35 @@ class UserInterface:
         if context_window is not None and context_window > 0:
             percent_text = f"{(used_tokens / context_window) * 100:.1f}%"
 
+        home = os.path.expanduser("~")
+        cwd_text = cwd.replace(home, "~", 1) if home and cwd.startswith(home) else cwd
         model_text = model or "-"
+        tokens_text = f"tokens: {used_text}/{context_text} ({percent_text})"
+
+        self.console.print(Rule(style="grey30"))
+
+        if self.console.width < 100:
+            line = Text(overflow="fold")
+            line.append(cwd_text, style=INFO_COLOR)
+            line.append("  ·  ", style="grey30")
+            line.append(tokens_text, style=INFO_COLOR)
+            line.append("  ·  ", style="grey30")
+            if auto_approve:
+                line.append("auto-approve", style="yellow")
+                line.append(" · ", style="grey30")
+            line.append(model_text, style=INFO_COLOR)
+            self.console.print(line)
+            return
+
         auto_text = "[yellow]auto-approve[/yellow] · " if auto_approve else ""
 
         footer = Table.grid(expand=True)
-        footer.add_column(justify="left")
-        footer.add_column(justify="center")
-        footer.add_column(justify="right")
+        footer.add_column(justify="left", no_wrap=True, overflow="ellipsis")
+        footer.add_column(justify="center", no_wrap=True, overflow="ellipsis")
+        footer.add_column(justify="right", no_wrap=True, overflow="ellipsis")
         footer.add_row(
-            f"[grey53]{cwd}[/grey53]",
-            f"[grey53]tokens: {used_text}/{context_text} ({percent_text})[/grey53]",
+            f"[grey53]{cwd_text}[/grey53]",
+            f"[grey53]{tokens_text}[/grey53]",
             f"{auto_text}[grey53]{model_text}[/grey53]",
         )
         self.console.print(footer)
